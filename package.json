@@ -1,0 +1,15 @@
+{
+  "name": "olga-prem-course-site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "One-page bilingual course website with Telegram lead form.",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build": "node scripts/check-deploy.js",
+    "test": "node --test tests/*.test.cjs"
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 620" role="img" aria-label="Photo placeholder">
+  <rect x="18" y="18" width="394" height="584" rx="8" fill="#fff8eb" stroke="#ec6517" stroke-width="4" stroke-dasharray="16 14"/>
+  <path d="M95 492h240" fill="none" stroke="#ec6517" stroke-width="8" stroke-linecap="square"/>
+  <text x="215" y="286" text-anchor="middle" fill="#ec6517" font-family="Arial, sans-serif" font-size="30" font-weight="700">PHOTO</text>
+  <text x="215" y="324" text-anchor="middle" fill="#ec6517" font-family="Arial, sans-serif" font-size="20">woman image</text>
+</svg>

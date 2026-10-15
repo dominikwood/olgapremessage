@@ -1,0 +1,10 @@
+node_modules/
+.env*
+!.env.example
+.vercel/
+.npm-cache/
+qa/
+.codex-*
+design-qa.md
+.DS_Store
+*.log
