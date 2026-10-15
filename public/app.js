@@ -195,7 +195,17 @@ const translations = {
     "form.submit": "Надіслати заявку",
     "form.sending": "Надсилаю заявку...",
     "form.success": "Дякую! Заявку надіслано.",
-    "form.error": "Не вдалося надіслати заявку. Спробуйте ще раз або напишіть мені напряму."
+    "form.error": "Не вдалося надіслати заявку. Спробуйте ще раз або напишіть мені напряму.",
+    "form.errorConfig": "Відправлення заявок ще не налаштовано. Напишіть мені напряму в Telegram.",
+    "form.errorToken": "Telegram відхилив токен бота. Потрібна перевірка налаштувань сайту.",
+    "form.errorChat": "Telegram не знайшов чат для заявок. Потрібна перевірка CHAT_ID і доступу бота.",
+    "form.errorPermission": "Telegram заборонив боту надсилати повідомлення. Потрібна перевірка участі та прав бота в чаті.",
+    "form.errorMigrated": "Telegram змінив ID групи. Потрібно оновити CHAT_ID у налаштуваннях сайту.",
+    "form.errorRate": "Telegram тимчасово обмежив відправлення. Спробуйте пізніше.",
+    "form.errorTimeout": "Telegram не відповів вчасно. Перевірте чат перед повторною відправкою або напишіть мені напряму.",
+    "form.errorProtected": "Vercel вимагає авторизації для цієї адреси. Відкрийте основну публічну адресу сайту або перевірте захист деплоя.",
+    "form.errorOrigin": "Сайт відхилив адресу відправлення. Відкрийте сайт напряму, не через сторонню копію сторінки.",
+    "form.errorResponse": "Сервер не підтвердив відправлення заявки. Оновіть сторінку або напишіть мені напряму."
   },
   ru: {
     "hero.title": "Курс самомассажа",
@@ -393,7 +403,17 @@ const translations = {
     "form.submit": "Отправить заявку",
     "form.sending": "Отправляю заявку...",
     "form.success": "Спасибо! Заявка отправлена.",
-    "form.error": "Не удалось отправить заявку. Попробуйте ещё раз или напишите мне напрямую."
+    "form.error": "Не удалось отправить заявку. Попробуйте ещё раз или напишите мне напрямую.",
+    "form.errorConfig": "Отправка заявок ещё не настроена. Напишите мне напрямую в Telegram.",
+    "form.errorToken": "Telegram отклонил токен бота. Нужна проверка настроек сайта.",
+    "form.errorChat": "Telegram не нашёл чат для заявок. Нужна проверка CHAT_ID и доступа бота.",
+    "form.errorPermission": "Telegram запретил боту отправлять сообщения. Нужна проверка участия и прав бота в чате.",
+    "form.errorMigrated": "Telegram изменил ID группы. Нужно обновить CHAT_ID в настройках сайта.",
+    "form.errorRate": "Telegram временно ограничил отправку. Попробуйте позже.",
+    "form.errorTimeout": "Telegram не ответил вовремя. Проверьте чат перед повторной отправкой или напишите мне напрямую.",
+    "form.errorProtected": "Vercel требует авторизации для этого адреса. Откройте основной публичный адрес сайта или проверьте защиту деплоя.",
+    "form.errorOrigin": "Сайт отклонил адрес отправки. Откройте сайт напрямую, не через стороннюю копию страницы.",
+    "form.errorResponse": "Сервер не подтвердил отправку заявки. Обновите страницу или напишите мне напрямую."
   }
 };
 
@@ -480,8 +500,23 @@ form.addEventListener("submit", async (event) => {
       body: JSON.stringify(payload)
     });
 
-    if (!response.ok) {
-      throw new Error("Request failed");
+    const result = await response.json().catch(() => null);
+    if (!response.ok || result?.ok !== true) {
+      const errorKeys = {
+        telegram_not_configured: "form.errorConfig",
+        telegram_invalid_token: "form.errorToken",
+        telegram_chat_not_found: "form.errorChat",
+        telegram_forbidden: "form.errorPermission",
+        telegram_chat_migrated: "form.errorMigrated",
+        telegram_rate_limited: "form.errorRate",
+        telegram_timeout: "form.errorTimeout",
+        origin_not_allowed: "form.errorOrigin"
+      };
+      const reason = result?.error;
+      const errorKey = typeof reason === "string" && Object.hasOwn(errorKeys, reason) ? errorKeys[reason] : null;
+      const key = response.status === 401 ? "form.errorProtected" : errorKey || (response.ok ? "form.errorResponse" : "form.error");
+      setStatus(t(key), "error");
+      return;
     }
 
     form.reset();

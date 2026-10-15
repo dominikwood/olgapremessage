@@ -8,6 +8,7 @@ const lead = { name: 'Test', phone: '@test_user', message: 'Comment', language: 
 
 async function invoke({ payload = lead, raw, parsed = false, bodyGetterError = false, headers = {}, method = 'POST', config = env, fetchImpl } = {}) {
   const calls = [];
+  const reports = [];
   const chunks = raw === undefined ? [JSON.stringify(payload)] : Array.isArray(raw) ? raw : [raw];
   const request = Readable.from(chunks.map(value => Buffer.from(value)));
   request.method = method;
@@ -22,8 +23,8 @@ async function invoke({ payload = lead, raw, parsed = false, bodyGetterError = f
     calls.push(args);
     return fetchImpl ? fetchImpl(...args) : { ok: true, json: async () => ({ ok: true }) };
   };
-  await createLeadHandler({ env: config, fetchImpl: send })(request, response);
-  return { ...response, calls };
+  await createLeadHandler({ env: config, fetchImpl: send, reportFailure: details => reports.push(details) })(request, response);
+  return { ...response, calls, reports };
 }
 
 test('streamed and Vercel-parsed requests send the same private message', async () => {
@@ -139,4 +140,23 @@ test('Telegram HTTP, API, JSON and network failures are not false successes', as
 
 test('Vercel entry point is the shared server handler', () => {
   assert.equal(require('../api/apply.js'), require('../lib/lead-handler.js').handleLead);
+});
+
+test('Telegram diagnostic codes never include raw descriptions, secrets or chat IDs', async () => {
+  const cases = [
+    [401, { error_code: 401, description: 'Unauthorized PRIVATE' }, 'telegram_invalid_token'],
+    [404, { error_code: 404, description: 'Not Found PRIVATE' }, 'telegram_invalid_token'],
+    [400, { error_code: 400, description: 'Bad Request: chat not found PRIVATE' }, 'telegram_chat_not_found'],
+    [403, { error_code: 403, description: 'Forbidden PRIVATE' }, 'telegram_forbidden'],
+    [429, { error_code: 429, description: 'PRIVATE' }, 'telegram_rate_limited'],
+    [400, { error_code: 400, description: 'PRIVATE', parameters: { migrate_to_chat_id: -100987654321 } }, 'telegram_chat_migrated']
+  ];
+  for (const [status, data, expected] of cases) {
+    const response = await invoke({ fetchImpl: async () => ({ status, ok: false, json: async () => ({ ok: false, ...data }) }) });
+    assert.equal(response.status, 502);
+    assert.equal(response.body.error, expected);
+    assert.deepEqual(response.reports, [{ reason: expected, telegramStatus: status }]);
+    const diagnostic = JSON.stringify({ body: response.body, reports: response.reports });
+    for (const secret of ['PRIVATE', '-100987654321', env.TELEGRAM_BOT_TOKEN, lead.name, lead.phone]) assert.ok(!diagnostic.includes(secret));
+  }
 });
