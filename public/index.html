@@ -393,7 +393,7 @@
             <button class="package-button" type="button" data-open-modal data-package="group" data-i18n="packages.choose">Обрати пакет</button>
           </article>
           <article class="package-card" aria-labelledby="package-advanced-title">
-            <h3 id="package-advanced-title" data-i18n="packages.advanced.title">Просунутий</h3>
+            <h3 id="package-advanced-title" data-i18n="packages.advanced.title">Потужний</h3>
             <img class="package-icon spa-icon" src="/icons/spa/3packet-1.svg?v=20261016-2" width="128" height="128" alt="" aria-hidden="true">
             <p class="package-price">400 €</p>
             <div class="package-services" data-package-services></div>
@@ -557,13 +557,18 @@
           </label>
 
           <label>
-            <span data-i18n="form.phone">Телефон або Telegram</span>
-            <input name="phone" type="text" autocomplete="tel" maxlength="80" required data-i18n-placeholder="form.phonePlaceholder" placeholder="+380 або @username">
+            <span data-i18n="form.telegram">Telegram @username</span>
+            <input name="telegram" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="33" pattern="@?[A-Za-z0-9_]{1,32}" required data-i18n-placeholder="form.telegramPlaceholder" placeholder="@username">
           </label>
 
           <label>
-            <span data-i18n="form.message">Коментар</span>
-            <textarea name="message" rows="4" maxlength="800" data-i18n-placeholder="form.messagePlaceholder" placeholder="Зручний час для зв'язку"></textarea>
+            <span data-i18n="form.phone">Телефон</span>
+            <input name="phone" type="tel" autocomplete="tel" maxlength="40" required data-i18n-placeholder="form.phonePlaceholder" placeholder="+380 XX XXX XX XX">
+          </label>
+
+          <label>
+            <span data-i18n="form.message">Коментар (не обов'язково)</span>
+            <textarea name="message" rows="4" maxlength="800" data-i18n-placeholder="form.messagePlaceholder" placeholder="Залиште ваше питання та вкажіть зручний для вас час зв'язку"></textarea>
           </label>
 
           <button class="primary-button form-button" type="submit" data-i18n="form.submit">Надіслати заявку</button>
@@ -572,7 +577,7 @@
       </div>
     </div>
 
-    <script src="/app.js?v=20261015-2" defer></script>
+    <script src="/app.js?v=20261020-3" defer></script>
     <script src="/certificates.js?v=20261014-8" defer></script>
     <script src="/reviews.js?v=20261014-8" defer></script>
     <script src="/footer-content.js?v=20261014-11" defer></script>

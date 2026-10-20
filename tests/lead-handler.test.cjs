@@ -4,7 +4,7 @@ const { Readable } = require('node:stream');
 const { createLeadHandler } = require('../lib/lead-handler.js');
 
 const env = { TELEGRAM_BOT_TOKEN: '123456:TEST_ONLY_NOT_A_REAL_TOKEN', TELEGRAM_CHAT_ID: '42' };
-const lead = { name: 'Test', phone: '@test_user', message: 'Comment', language: 'uk', source: 'Package 40 EUR', website: '' };
+const lead = { name: 'Test', telegram: '@test_user', phone: '+380 67 123 45 67', message: 'Comment', language: 'uk', source: 'Package 40 EUR', website: '' };
 
 async function invoke({ payload = lead, raw, parsed = false, bodyGetterError = false, headers = {}, method = 'POST', config = env, fetchImpl } = {}) {
   const calls = [];
@@ -40,6 +40,7 @@ test('streamed and Vercel-parsed requests send the same private message', async 
     assert.equal(data.chat_id, '42');
     assert.match(data.text, /Test/);
     assert.match(data.text, /Package 40 EUR/);
+    assert.ok(data.text.includes(`Telegram: ${lead.telegram}\nТелефон: ${lead.phone}`));
     assert.equal(data.parse_mode, undefined);
     assert.ok(options.signal instanceof AbortSignal);
     assert.ok(!JSON.stringify(response.body).includes(env.TELEGRAM_BOT_TOKEN));
@@ -61,7 +62,7 @@ test('only POST JSON is accepted', async () => {
 
 test('malformed JSON, null, arrays and invalid fields return 400', async () => {
   for (const raw of ['{', 'null', '[]', 'true', '"text"']) assert.equal((await invoke({ raw })).status, 400);
-  for (const payload of [{}, { name: ' ', phone: 'x' }, { name: 'x', phone: '' }, { ...lead, name: {} }, { ...lead, phone: 123 }, { ...lead, website: [] }]) {
+  for (const payload of [{}, { ...lead, name: ' ' }, { ...lead, phone: '' }, { ...lead, name: {} }, { ...lead, phone: 123 }, { ...lead, telegram: {} }, { ...lead, website: [] }]) {
     const response = await invoke({ payload });
     assert.equal(response.status, 400);
     assert.equal(response.calls.length, 0);
@@ -103,13 +104,52 @@ test('honeypot quietly filters simple bots without calling Telegram', async () =
 });
 
 test('normalization limits fields and prevents forged message headings', async () => {
-  const response = await invoke({ payload: { name: 'x'.repeat(121), phone: 'phone\nInjected', source: 'source\r\nInjected', message: 'x'.repeat(801), language: 'invalid' } });
+  const response = await invoke({ payload: { ...lead, name: `${'x'.repeat(100)}\nInjected${'x'.repeat(30)}`, source: 'source\r\nInjected', message: 'x'.repeat(801), language: 'invalid' } });
   const text = JSON.parse(response.calls[0][1].body).text;
   assert.ok(!text.includes('x'.repeat(801)));
   assert.ok(text.includes('x'.repeat(800)));
-  assert.ok(text.includes('phone Injected'));
+  assert.match(text, /source +Injected/);
+  assert.ok(text.includes(`${'x'.repeat(100)} Injected`));
   assert.ok(!text.includes('\nInjected'));
   assert.ok(text.includes('uk'));
+});
+
+test('Telegram is mandatory for both local streams and Vercel-parsed requests', async () => {
+  for (const parsed of [false, true]) {
+    for (const telegram of [undefined, '', '   ']) {
+      const response = await invoke({ payload: { ...lead, telegram }, parsed });
+      assert.equal(response.status, 400);
+      assert.equal(response.body.error, 'required_fields');
+      assert.equal(response.calls.length, 0);
+    }
+  }
+});
+
+test('Telegram accepts an optional @, normalizes it, and rejects malformed usernames', async () => {
+  for (const telegram of ['test_user', '@test_user', '  @Test_User  ', '@abc', `@${'a'.repeat(32)}`]) {
+    const response = await invoke({ payload: { ...lead, telegram } });
+    assert.equal(response.status, 200);
+    const message = JSON.parse(response.calls[0][1].body).text;
+    assert.ok(message.includes(`Telegram: @${telegram.trim().replace(/^@/, '')}\n`));
+  }
+  for (const telegram of ['@', '@@test_user', '@test user', 'https://t.me/test_user', '@тест', '@test\nInjected', `@${'a'.repeat(33)}`]) {
+    const response = await invoke({ payload: { ...lead, telegram } });
+    assert.equal(response.status, 400);
+    assert.equal(response.body.error, 'invalid_telegram');
+    assert.equal(response.calls.length, 0);
+  }
+});
+
+test('the phone field only accepts telephone numbers, never Telegram usernames', async () => {
+  for (const phone of ['+380 (67) 123-45-67', '0671234567', '+44 20 7946 0958']) {
+    assert.equal((await invoke({ payload: { ...lead, phone } })).status, 200);
+  }
+  for (const phone of ['@test_user', 'test_user', 'https://t.me/test_user', '123', '+1234567890123456', '-------']) {
+    const response = await invoke({ payload: { ...lead, phone } });
+    assert.equal(response.status, 400);
+    assert.equal(response.body.error, 'invalid_phone');
+    assert.equal(response.calls.length, 0);
+  }
 });
 
 test('missing credentials never cause a network call', async () => {
@@ -157,6 +197,6 @@ test('Telegram diagnostic codes never include raw descriptions, secrets or chat 
     assert.equal(response.body.error, expected);
     assert.deepEqual(response.reports, [{ reason: expected, telegramStatus: status }]);
     const diagnostic = JSON.stringify({ body: response.body, reports: response.reports });
-    for (const secret of ['PRIVATE', '-100987654321', env.TELEGRAM_BOT_TOKEN, lead.name, lead.phone]) assert.ok(!diagnostic.includes(secret));
+    for (const secret of ['PRIVATE', '-100987654321', env.TELEGRAM_BOT_TOKEN, lead.name, lead.telegram, lead.phone]) assert.ok(!diagnostic.includes(secret));
   }
 });

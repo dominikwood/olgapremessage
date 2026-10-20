@@ -154,7 +154,7 @@ const translations = {
     "packages.format": "Формат навчання",
     "packages.independent.title": "Самостійний",
     "packages.group.title": "Груповий",
-    "packages.advanced.title": "Просунутий",
+    "packages.advanced.title": "Потужний",
     "packages.independent.format": "Самостійне опрацювання уроків. Доступ на 5 тижнів.",
     "packages.group.format": "Груповий формат для спілкування. Доступ до уроків 8 тижнів. Відповіді в чаті з 9:00 до 19:00.",
     "packages.advanced.format": "Індивідуальний супровід і чат зі мною. Дві індивідуальні консультації протягом 2 місяців навчання.",
@@ -188,10 +188,15 @@ const translations = {
     "form.copy": "Я зв'яжуся з вами та підкажу наступний крок для придбання курсу.",
     "form.name": "Ім'я",
     "form.namePlaceholder": "Ваше ім'я",
-    "form.phone": "Телефон або Telegram",
-    "form.phonePlaceholder": "+380 або @username",
-    "form.message": "Коментар",
-    "form.messagePlaceholder": "Зручний час для зв'язку",
+    "form.telegram": "Telegram @username",
+    "form.telegramPlaceholder": "@username",
+    "form.phone": "Телефон",
+    "form.phonePlaceholder": "+380 XX XXX XX XX",
+    "form.message": "Коментар (не обов'язково)",
+    "form.messagePlaceholder": "Залиште ваше питання та вкажіть зручний для вас час зв'язку",
+    "form.errorTelegram": "Вкажіть ваш Telegram @username: латинські літери, цифри та підкреслення, без пробілів і посилань.",
+    "form.errorPhone": "Вкажіть номер телефону, а не Telegram: наприклад, +380 67 123 45 67.",
+    "form.errorRequired": "Заповніть ім'я, Telegram @username та номер телефону.",
     "form.submit": "Надіслати заявку",
     "form.sending": "Надсилаю заявку...",
     "form.success": "Дякую! Заявку надіслано.",
@@ -362,7 +367,7 @@ const translations = {
     "packages.format": "Формат обучения",
     "packages.independent.title": "Самостоятельный",
     "packages.group.title": "Групповой",
-    "packages.advanced.title": "Продвинутый",
+    "packages.advanced.title": "Мощный",
     "packages.independent.format": "Самостоятельное изучение уроков. Доступ на 5 недель.",
     "packages.group.format": "Групповой формат для общения. Доступ к урокам 8 недель. Ответы в чате с 9:00 до 19:00.",
     "packages.advanced.format": "Индивидуальное сопровождение и чат со мной. Две индивидуальные консультации в течение 2 месяцев обучения.",
@@ -396,10 +401,15 @@ const translations = {
     "form.copy": "Я свяжусь с вами и подскажу следующий шаг для покупки курса.",
     "form.name": "Имя",
     "form.namePlaceholder": "Ваше имя",
-    "form.phone": "Телефон или Telegram",
-    "form.phonePlaceholder": "+380 или @username",
-    "form.message": "Комментарий",
-    "form.messagePlaceholder": "Удобное время для связи",
+    "form.telegram": "Telegram @username",
+    "form.telegramPlaceholder": "@username",
+    "form.phone": "Телефон",
+    "form.phonePlaceholder": "+380 XX XXX XX XX",
+    "form.message": "Комментарий (необязательно)",
+    "form.messagePlaceholder": "Оставьте ваш вопрос и укажите удобное для вас время связи",
+    "form.errorTelegram": "Укажите ваш Telegram @username: латинские буквы, цифры и подчёркивание, без пробелов и ссылок.",
+    "form.errorPhone": "Укажите номер телефона, а не Telegram: например, +380 67 123 45 67.",
+    "form.errorRequired": "Заполните имя, Telegram @username и номер телефона.",
     "form.submit": "Отправить заявку",
     "form.sending": "Отправляю заявку...",
     "form.success": "Спасибо! Заявка отправлена.",
@@ -479,14 +489,28 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const submitButton = form.querySelector('[type="submit"]');
   if (submitButton.disabled) return;
+  const formData = new FormData(form);
+  const telegram = String(formData.get("telegram") || "").trim();
+  const phone = String(formData.get("phone") || "").trim();
+  if (!/^@?[A-Za-z0-9_]{1,32}$/.test(telegram)) {
+    setStatus(t("form.errorTelegram"), "error");
+    form.elements.telegram.focus();
+    return;
+  }
+  const phoneDigits = phone.replace(/\D/g, "");
+  if (!/^\+?[0-9 ().-]+$/.test(phone) || phoneDigits.length < 6 || phoneDigits.length > 15) {
+    setStatus(t("form.errorPhone"), "error");
+    form.elements.phone.focus();
+    return;
+  }
   submitButton.disabled = true;
   submitButton.setAttribute("aria-busy", "true");
   setStatus(t("form.sending"));
 
-  const formData = new FormData(form);
   const payload = {
     name: formData.get("name"),
-    phone: formData.get("phone"),
+    telegram: `@${telegram.replace(/^@/, "")}`,
+    phone,
     message: formData.get("message"),
     website: formData.get("website"),
     language: currentLanguage,
@@ -503,6 +527,9 @@ form.addEventListener("submit", async (event) => {
     const result = await response.json().catch(() => null);
     if (!response.ok || result?.ok !== true) {
       const errorKeys = {
+        required_fields: "form.errorRequired",
+        invalid_telegram: "form.errorTelegram",
+        invalid_phone: "form.errorPhone",
         telegram_not_configured: "form.errorConfig",
         telegram_invalid_token: "form.errorToken",
         telegram_chat_not_found: "form.errorChat",
@@ -583,7 +610,7 @@ function openModal(event) {
   setStatus("");
   modal.hidden = false;
   document.body.style.overflow = "hidden";
-  const firstInput = modal.querySelector("input");
+  const firstInput = modal.querySelector("input:not([hidden])");
   window.setTimeout(() => firstInput.focus(), 50);
 }
 
